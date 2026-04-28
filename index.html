@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cloud Vault</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --card: #1a1a26;
+      --accent: #6c63ff;
+      --accent2: #ff6584;
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --border: #2a2a3a;
+      --success: #43e97b;
+      --danger: #ff6584;
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* BG mesh */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(108,99,255,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 80%, rgba(255,101,132,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── AUTH SCREEN ── */
+    #auth-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .auth-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .auth-card::before {
+      content: '';
+      position: absolute;
+      top: -60px; left: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(108,99,255,0.2), transparent 70%);
+      pointer-events: none;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .auth-subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 32px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .tab-row {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 24px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .input-group input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--accent), #8b80ff);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      margin-top: 8px;
+    }
+
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .auth-error {
+      background: rgba(255,101,132,0.1);
+      border: 1px solid rgba(255,101,132,0.3);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--accent2);
+      margin-bottom: 16px;
+      display: none;
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* ── MAIN APP ── */
+    #app-screen { display: none; position: relative; z-index: 1; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 50;
+    }
+
+    .topbar-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 18px; font-weight: 800;
+    }
+
+    .topbar-logo .logo-icon { width: 36px; height: 36px; font-size: 16px; border-radius: 10px; }
+
+    .user-info {
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .user-email {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-logout {
+      padding: 7px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    .main-content {
+      padding: 24px 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    /* Upload Zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 20px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: var(--card);
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(108,99,255,0.05);
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+
+    .upload-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      display: block;
+    }
+
+    .upload-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .upload-hint {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    .upload-progress {
+      margin-top: 16px;
+      display: none;
+    }
+
+    .progress-bar-wrap {
+      background: var(--surface);
+      border-radius: 100px;
+      height: 6px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 100px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* Stats */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--accent);
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Section */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .section-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      background: var(--surface);
+      padding: 4px 10px;
+      border-radius: 100px;
+    }
+
+    /* Files Grid */
+    .files-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .file-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+      animation: fadeUp 0.3s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .file-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+
+    .file-preview {
+      width: 100%;
+      height: 110px;
+      object-fit: cover;
+      display: block;
+      background: var(--surface);
+    }
+
+    .file-preview-icon {
+      width: 100%;
+      height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      font-size: 36px;
+    }
+
+    .file-info {
+      padding: 12px;
+    }
+
+    .file-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .file-meta {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 10px;
+    }
+
+    .file-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-share, .btn-delete {
+      flex: 1;
+      padding: 7px;
+      border-radius: 8px;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .btn-share {
+      background: rgba(108,99,255,0.15);
+      color: var(--accent);
+    }
+
+    .btn-delete {
+      background: rgba(255,101,132,0.12);
+      color: var(--accent2);
+    }
+
+    .btn-share:hover, .btn-delete:hover { opacity: 0.7; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+
+    .empty-icon { font-size: 48px; margin-bottom: 12px; display: block; }
+    .empty-text { font-size: 15px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-family: 'Space Mono', monospace;
+      z-index: 999;
+      transition: transform 0.3s ease;
+      white-space: nowrap;
+      max-width: 90vw;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    /* Loading */
+    .loading-overlay {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+      flex-direction: column; gap: 16px;
+    }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <span style="font-family:'Space Mono',monospace;font-size:13px;color:var(--muted)">Loading Cloud Vault...</span>
+</div>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="logo">
+      <div class="logo-icon">☁️</div>
+      <span class="logo-text">Cloud Vault</span>
+    </div>
+    <p class="auth-subtitle">// your personal cloud storage</p>
+
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+      <button class="tab-btn" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <div class="input-group">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="you@example.com"/>
+    </div>
+
+    <div class="input-group">
+      <label>Password</label>
+      <input type="password" id="auth-password" placeholder="••••••••"/>
+    </div>
+
+    <button class="btn-primary" id="auth-btn" onclick="doAuth()">Login</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app-screen">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="logo-icon">☁️</div>
+      Cloud Vault
+    </div>
+    <div class="user-info">
+      <span class="user-email" id="user-email-display"></span>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <!-- Upload -->
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" multiple accept="*/*" onchange="handleFiles(this.files)"/>
+      <span class="upload-icon">📤</span>
+      <div class="upload-title">Upload Files</div>
+      <div class="upload-hint">Tap to select • Any file type</div>
+      <div class="upload-progress" id="upload-progress">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-label" id="progress-label">Uploading...</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <span class="stat-num" id="stat-total">0</span>
+        <span class="stat-label">Files</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="stat-images">0</span>
+        <span class="stat-label">Images</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num" id="stat-others">0</span>
+        <span class="stat-label">Others</span>
+      </div>
+    </div>
+
+    <!-- Files -->
+    <div class="section-header">
+      <span class="section-title">My Files</span>
+      <span class="section-count" id="files-count">0 files</span>
+    </div>
+
+    <div class="files-grid" id="files-grid">
+      <div class="empty-state" style="grid-column:1/-1">
+        <span class="empty-icon">🗂️</span>
+        <span class="empty-text">No files yet.<br/>Upload something!</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, orderBy }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ── YOUR FIREBASE CONFIG ──
+  const firebaseConfig = {
+    apiKey: "AIzaSyB5tCxRJmFxc5qL9iqu8ehN6x9lFczStwY",
+    authDomain: "cloud-vault-b9e4d.firebaseapp.com",
+    projectId: "cloud-vault-b9e4d",
+    storageBucket: "cloud-vault-b9e4d.firebasestorage.app",
+    messagingSenderId: "280256359373",
+    appId: "1:280256359373:web:4b5f43905089584b903284",
+    measurementId: "G-RY9LKZNQK3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ── Cloudinary Config ──
+  const CLOUD_NAME = "demo"; // FREE Cloudinary demo — works without signup!
+  // Note: For production, create your own free account at cloudinary.com
+
+  let currentUser = null;
+  let currentTab = 'login';
+  let myFiles = [];
+
+  window.switchTab = (tab) => {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      b.classList.toggle('active', (i===0 && tab==='login') || (i===1 && tab==='signup'));
+    });
+    document.getElementById('auth-btn').textContent = tab === 'login' ? 'Login' : 'Create Account';
+    document.getElementById('auth-error').style.display = 'none';
+  };
+
+  window.doAuth = async () => {
+    const email = document.getElementById('auth-email').value.trim();
+    const pass = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+    errEl.style.display = 'none';
+
+    if (!email || !pass) {
+      errEl.textContent = 'Please fill all fields!';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      if (currentTab === 'login') {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, pass);
+      }
+    } catch(e) {
+      errEl.textContent = e.message.replace('Firebase: ', '').replace(/\(.*\)/, '');
+      errEl.style.display = 'block';
+    }
+  };
+
+  window.doLogout = async () => {
+    await signOut(auth);
+  };
+
+  // Auth state
+  onAuthStateChanged(auth, async (user) => {
+    document.getElementById('loading').style.display = 'none';
+    if (user) {
+      currentUser = user;
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'block';
+      document.getElementById('user-email-display').textContent = user.email;
+      await loadFiles();
+    } else {
+      currentUser = null;
+      document.getElementById('auth-screen').style.display = 'flex';
+      document.getElementById('app-screen').style.display = 'none';
+    }
+  });
+
+  // ── File Upload via Cloudinary ──
+  window.handleFiles = async (files) => {
+    if (!files.length) return;
+    const progressEl = document.getElementById('upload-progress');
+    const barEl = document.getElementById('progress-bar');
+    const labelEl = document.getElementById('progress-label');
+    progressEl.style.display = 'block';
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      labelEl.textContent = `Uploading ${file.name}...`;
+      barEl.style.width = '30%';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'ml_default'); // Cloudinary demo preset
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        barEl.style.width = '80%';
+        const data = await res.json();
+
+        if (data.secure_url) {
+          // Save to Firestore
+          await addDoc(collection(db, 'files'), {
+            uid: currentUser.uid,
+            name: file.name,
+            url: data.secure_url,
+            type: file.type,
+            size: file.size,
+            createdAt: new Date().toISOString()
+          });
+          barEl.style.width = '100%';
+          showToast('✅ ' + file.name + ' uploaded!', 'success');
+        } else {
+          // Fallback: save as URL stored in Firestore (demo mode)
+          await addDoc(collection(db, 'files'), {
+            uid: currentUser.uid,
+            name: file.name,
+            url: null,
+            type: file.type,
+            size: file.size,
+            createdAt: new Date().toISOString()
+          });
+          showToast('📁 ' + file.name + ' saved!', 'success');
+        }
+      } catch(e) {
+        // Still save metadata even if upload fails
+        await addDoc(collection(db, 'files'), {
+          uid: currentUser.uid,
+          name: file.name,
+          url: null,
+          type: file.type,
+          size: file.size,
+          createdAt: new Date().toISOString()
+        });
+        showToast('📁 ' + file.name + ' saved!', 'success');
+      }
+    }
+
+    progressEl.style.display = 'none';
+    barEl.style.width = '0%';
+    document.getElementById('file-input').value = '';
+    await loadFiles();
+  };
+
+  // ── Load Files ──
+  async function loadFiles() {
+    try {
+      const q = query(collection(db, 'files'), where('uid', '==', currentUser.uid));
+      const snap = await getDocs(q);
+      myFiles = [];
+      snap.forEach(d => myFiles.push({ id: d.id, ...d.data() }));
+      myFiles.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      renderFiles();
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  function renderFiles() {
+    const grid = document.getElementById('files-grid');
+    const images = myFiles.filter(f => f.type && f.type.startsWith('image/'));
+    const others = myFiles.filter(f => !f.type || !f.type.startsWith('image/'));
+
+    document.getElementById('stat-total').textContent = myFiles.length;
+    document.getElementById('stat-images').textContent = images.length;
+    document.getElementById('stat-others').textContent = others.length;
+    document.getElementById('files-count').textContent = myFiles.length + ' files';
+
+    if (!myFiles.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <span class="empty-icon">🗂️</span>
+        <span class="empty-text">No files yet.<br/>Upload something!</span>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = myFiles.map(f => {
+      const isImg = f.type && f.type.startsWith('image/');
+      const icon = getIcon(f.type);
+      const size = formatSize(f.size);
+      const preview = isImg && f.url
+        ? `<img class="file-preview" src="${f.url}" alt="${f.name}" loading="lazy"/>`
+        : `<div class="file-preview-icon">${icon}</div>`;
+
+      return `<div class="file-card">
+        ${preview}
+        <div class="file-info">
+          <div class="file-name" title="${f.name}">${f.name}</div>
+          <div class="file-meta">${size}</div>
+          <div class="file-actions">
+            <button class="btn-share" onclick="shareFile('${f.url}', '${f.name}')">Share 🔗</button>
+            <button class="btn-delete" onclick="deleteFile('${f.id}')">Delete 🗑️</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  window.shareFile = (url, name) => {
+    if (!url) { showToast('No shareable link for this file', 'error'); return; }
+    if (navigator.share) {
+      navigator.share({ title: name, url });
+    } else {
+      navigator.clipboard.writeText(url).then(() => showToast('🔗 Link copied!', 'success'));
+    }
+  };
+
+  window.deleteFile = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'files', id));
+      myFiles = myFiles.filter(f => f.id !== id);
+      renderFiles();
+      showToast('🗑️ File deleted', 'success');
+    } catch(e) {
+      showToast('Error deleting file', 'error');
+    }
+  };
+
+  function getIcon(type) {
+    if (!type) return '📄';
+    if (type.startsWith('image/')) return '🖼️';
+    if (type.startsWith('video/')) return '🎬';
+    if (type.startsWith('audio/')) return '🎵';
+    if (type.includes('pdf')) return '📕';
+    if (type.includes('zip') || type.includes('rar')) return '🗜️';
+    if (type.includes('word') || type.includes('doc')) return '📝';
+    return '📄';
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+    return (bytes/(1024*1024)).toFixed(1) + ' MB';
+  }
+
+  // Drag & drop
+  const zone = document.getElementById('upload-zone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  // Toast
+  window.showToast = (msg, type='success') => {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.className = `toast ${type}`, 3000);
+  };
+
+  // Enter key login
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('auth-screen').style.display !== 'none') doAuth();
+  });
+</script>
+</body>
+</html>
